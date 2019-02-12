@@ -13,11 +13,9 @@ class User
   def can?(action, resource)
     return false if fired
 
-    roles.each do |role|
-      if role.action == action && role.resource == resource
-        return true
-      end
-    end
+    return true if can_via_roles(action, resource)
+
+    return true if can_via_resource_permissions(action, resource)
 
     false
   end
@@ -28,6 +26,26 @@ class User
 
   def fire!
     @fired = true
+  end
+
+  private
+
+  def can_via_roles(action, resource)
+    roles.each do |role|
+      if role.action == action && role.resource == resource
+        return true
+      end
+    end
+
+    false
+  end
+
+  def can_via_resource_permissions(action, resource)
+    resource.permissions.each do |permission|
+      return true if permission.action == action && permission.resource == resource
+    end
+
+    false
   end
 end
 
@@ -42,10 +60,24 @@ class Role
 end
 
 class Resource
-  attr_reader :name
+  attr_reader :name, :permissions
 
-  def initialize(name)
+  def initialize(name, permissions = [])
     @name = name
+    @permissions = permissions
+  end
+
+  def add_permission(permission)
+    @permissions << permission
+  end
+end
+
+class ResourcePermission
+  attr_reader :resource, :action
+
+  def initialize(resource, action)
+    @resource = resource
+    @action = action
   end
 end
 
@@ -114,3 +146,23 @@ val = user.can?(action, resource) # => true
 puts val
 
 assert(false, val)
+
+# Case 5: user can read Backoffice due global permission
+
+params = { first_name: 'Igor', last_name: 'Zubkov' }
+
+user = User.new(params)
+
+action = 'read'
+
+resource = Resource.new('Backoffice')
+
+permission = ResourcePermission.new(resource, action)
+
+resource.add_permission(permission)
+
+val = user.can?(action, resource) # => true
+
+puts val
+
+assert(true, val)
