@@ -3,21 +3,17 @@
 class User
   attr_reader :first_name, :last_name, :fired, :roles
 
+  alias_method :fired?, :fired
+
   def initialize(params, roles = [])
     @first_name = params[:first_name]
     @last_name = params[:last_name]
-    @fired = params[:fired] || false
+    @fired = params[:fired]
     @roles = roles
   end
 
   def can?(action, resource)
-    return false if fired
-
-    return true if can_via_roles(action, resource)
-
-    return true if can_via_resource_permissions(action, resource)
-
-    false
+    UserPermitter.new(self, action, resource).can?
   end
 
   def add_role(role)
@@ -26,26 +22,6 @@ class User
 
   def fire!
     @fired = true
-  end
-
-  private
-
-  def can_via_roles(action, resource)
-    roles.each do |role|
-      if role.action == action && role.resource == resource
-        return true
-      end
-    end
-
-    false
-  end
-
-  def can_via_resource_permissions(action, resource)
-    resource.permissions.each do |permission|
-      return true if permission.action == action && permission.resource == resource
-    end
-
-    false
   end
 end
 
@@ -78,6 +54,44 @@ class ResourcePermission
   def initialize(resource, action)
     @resource = resource
     @action = action
+  end
+end
+
+class UserPermitter
+  attr_reader :user, :action, :resource
+
+  def initialize(user, action, resource)
+    @user = user
+    @action = action
+    @resource = resource
+  end
+
+  def can?
+    return false if user.fired?
+
+    return true if can_via_roles
+
+    return true if can_via_resource_permissions
+
+    false
+  end
+
+  private
+
+  def can_via_roles
+    user.roles.each do |role|
+      return true if role.action == action && role.resource == resource
+    end
+
+    false
+  end
+
+  def can_via_resource_permissions
+    resource.permissions.each do |permission|
+      return true if permission.action == action && permission.resource == resource
+    end
+
+    false
   end
 end
 
