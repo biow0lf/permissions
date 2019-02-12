@@ -13,11 +13,21 @@ class User
   def can?(action, resource)
     return false if fired
 
-    roles.include?("#{ action }": resource)
+    roles.each do |role|
+      if role.action == action && role.resource == resource
+        return true
+      end
+    end
+
+    false
   end
 
   def add_role(role)
     roles << role
+  end
+
+  def fire!
+    @fired = true
   end
 end
 
@@ -60,7 +70,8 @@ puts val
 assert(false, val)
 
 # Case 2: user can't read Backoffice
-params = { first_name: 'Igor', last_name: 'Zubkov', fired: false }
+
+params = { first_name: 'Igor', last_name: 'Zubkov' }
 
 user = User.new(params)
 
@@ -74,12 +85,32 @@ puts val
 
 assert(false, val)
 
-# role = Role.new('Read backoffice', 'read', resource)
-#
-# user.add_role(role)
-#
-# val = user.can?(action, resource) # => true
-#
-# puts val
-#
-# assert(true, val)
+# Case 3: user can read Backoffice due role "Read backoffice"
+
+params = { first_name: 'Igor', last_name: 'Zubkov' }
+
+user = User.new(params)
+
+action = 'read'
+
+resource = Resource.new('Backoffice')
+
+role = Role.new('Read backoffice', 'read', resource)
+
+user.add_role(role)
+
+val = user.can?(action, resource) # => true
+
+puts val
+
+assert(true, val)
+
+# Case 4: user can't read Backoffice if fired
+
+user.fire!
+
+val = user.can?(action, resource) # => true
+
+puts val
+
+assert(false, val)
